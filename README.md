@@ -1,4 +1,4 @@
-🎯 AI-Powered Career Growth Engine (RAG Stack)
+🎯 AI-Powered Career Growth & Sill Analytics Treacker (RAG Stack)
 
 An enterprise-grade, decoupled data pipeline designed to transition career development from static job descriptions to dynamic human capabilities and cognitive scale.
 
@@ -8,44 +8,39 @@ This system ingests raw candidate parameters (Resumes, LinkedIn PDFs, GitHub rep
 
 The platform uses a decoupled data layout topology. It maintains UI thread fluid execution inside Gradio by offloading heavy multi-file parsing, API connections, and semantic matching tasks to standalone background orchestration modules under multi-tier guardrail validation.
 
-+-----------------------------------------------------------------------------------------+
 
-|                                    GRADIO FRONTEND APPLICATION                          |
-|                                                                                         |
-|   [ Gradio Layout Blocks ] <== (gr.Progress Live Listener Ticks) ===> [ Dashboard UI ]  |
-+--------------------------------───────+─────────────────────────────────────────+-------+
-                                        |                                         ^
-                             (Passes Form Fields File)                    (Clean Markdown Return)
-                                        v                                         |
-+--------------------------------───────+─────────────────────────────────────────+-------+
+       [ Raw Ingestion Inputs: Resumes, LinkedIn PDFs, GitHub Readmes ]
+                                       │
+                                       ▼
+                       [ Ingestion Guardrail Gateway ]
+                  (Max Length Filtering, Injection Sanitization)
+                                       │
+                                       ▼
+                     [ Paragraph + Tabular Matrix Parser ]
+                                       │
+                                       ▼
+                       [ recursive_text_splitter ]
+                   (Fixed Recursive List Extension Node)
+                                       │
+                                       ▼
+                       [ OpenAI Structured Outputs ]
+                (Translates concept tokens via JSON contracts)
+                                       │
+                                       ▼
+                    [ ChromaDB Local Vector Repository ]
+              (PersistentClient Analytics Engine & Seed Cache)
+                                       │
+                                       ▼
+                   [ Downstream RAG Reasoning Engine ]
+               (Low-temp Generative Analysis Engine Interface)
+                                       │
+                                       ▼
+                    [ Output Consistency Guardrails ]
+           (Evicts Hallucinations, Truncates Matrix to Top 10)
+                                       │
+                                       ▼
+               [ Unified JSON Object / Structural YAML File ]
 
-|                                CORE BACKGROUND PROCESSING LAYER                         |
-|                                                                                         |
-|   ┌───────────────────────────────────────────┐   ┌──────────────────────────────────┐  |
-|   │         PROFILE INGESTION AGENT           │   │      GITHUB EXTRACTOR MODULE     │  |
-|   │                                           │   │                                  │  |
-|   │  • Multi-Format File Reader (PDF/Docx)    │   │  • Concurrent HTTPX Ingestion    │  |
-|   │  • Pydantic v2 Schema Enforcement         │   │  • Recursive Text Token Splitter │  |
-|   │  • Structured Outputs (OpenAI Parse SDK)  │   │  • Async JSON Skills Harvesting  │  |
-|   └───────────────────┬───────────────────────┘   └─────────────────┬────────────────┘  |
-+-----------------------+---------------------------------------------+-------------------+
-
-                        |                                             |
-              (Clean Profile Data)                           (Source Readme Strings)
-                        └───────────────────────┬─────────────────────┘
-                                                v
-+-----------------------------------------------+-----------------------------------------+
-
-|                                KNOWLEDGE RETRIEVAL LAYER                                |
-|                                                                                         |
-|   ┌───────────────────────────────────────────┐   ┌──────────────────────────────────┐  |
-|   │           SKILLS GAP ANALYZER             │   │      VECTOR ENGINE HUB           │  |
-|   │                                           │   │                                  │  |
-|   │  • Token-Level Embedding Intersection     │   │  • Local Persistent ChromaDB     │  |
-|   │  • Dense Similarity Distance Scoring      │   │  • Multi-Stream Filter ($in/$or) │  |
-|   │  • Synonym Mapping (Bypasses Regex)       │   │  • Cosine Vector Geometry Space  │  |
-|   └───────────────────────────────────────────┘   └──────────────────────────────────┘  |
-+-----------------------------------------------------------------------------------------+
 
 
 🛠️ Deep-Dive Component Specifications
