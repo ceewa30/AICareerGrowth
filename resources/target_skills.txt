@@ -1,0 +1,4 @@
+target_skills = ["Python", "PHP", "MySQL", "HTML", "CSS", "JavaScript", "AWS", "Heroku",
+                 "APIs", "Docker", "PostgreSQL", "SQLite", "Data Science", "AI", "Git",
+                 "Bootstrap", "Agile", "Linux", "Apache", "LAMP", "Django", "WordPress",
+                 "Redis", "Memcached", "Ajax", "jQuery"]

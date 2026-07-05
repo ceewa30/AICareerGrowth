@@ -1,0 +1,25 @@
+requests
+chromadb
+numpy
+pypdf
+pydantic
+openai
+pandas
+python-dotenv
+fastapi
+unicorn
+python-multipart
+pytest
+python-docx
+streamlit
+pypdf
+pdfplumber
+pyyaml
+google-genai
+langchain-text-splitters
+sentence_transformers
+gradio
+markdown
+xhtml2pdf
+# asynchronous HTTP client.
+aiohttp
