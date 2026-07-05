@@ -107,16 +107,18 @@ JSON Reconciliation & Sanitization Gateway: Structural parsing is enforced via O
 
 Prerequisites
 
-bash
+# bash
 
 pip install gradio chromadb openai pydantic pyyaml httpx
 
-Environment Settings (.env)
+# Environment Settings (.env)
 
 ini
 
 OPENAI_API_KEY="your-production-openai-token-here"
+
 GITHUB_TOKEN_KEY="your-production-github-token-here"
+
 
                                   +-----------------------+
                                   |   Gradio Frontend UI  |  <--- (Reactive Cards, Progress Layer, gr.State)
