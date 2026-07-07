@@ -10,10 +10,6 @@ from core.VectorEmbedding import VectorEmbedding
 import asyncio
 import chromadb
 from chromadb.utils import embedding_functions
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
 
 from core.PDFDataExtractor import PDFDataExtractor
 from core.GitHubDataExtractor import GitHubDataExtractor
@@ -115,18 +111,34 @@ class CareerTracker:
         print("\n🚀 Initiating Skill Combination Ingestion Pipeline...")
 
         try:
-            # 1. Process and extract LinkedIn PDF layers
-            try:
-                self.linkedin_payload = self.pdf_data_extractor.pdf_extractor()
-            except Exception as le:
-                print(f"❌ Extraction Error: LinkedIn PDF processing failed. Detail: {str(le)}")
-                raise le
+            # =====================================================================
+            # 1. ORCHESTRATE ASYNC TASKS CONCURRENTLY IN A SINGLE LOOP
+            # =====================================================================
+            async def run_async_extractors():
+                print("🔄 Fetching LinkedIn PDF data and GitHub repositories concurrently...")
 
+                # Fire both heavy network/API extractors at the exact same time
+                linkedin_task = self.pdf_data_extractor.pdf_extractor()
+                github_task = self.github_data_extractor.github_extractor()
+                docx_task = self.doc_data_extractor.process_file_upload()
+
+                # Concurrently await both results over a single event loop execution
+                return await asyncio.gather(linkedin_task, github_task, docx_task)
+
+            try:
+                # CALL ASYNCIO.RUN EXACTLY ONCE FOR ALL ASYNC EXTRACTIONS
+                self.linkedin_payload, self.github_payload, self.docx_payload = asyncio.run(run_async_extractors())
+            except Exception as async_err:
+                print(f"❌ Extraction Error: Concurrent async extraction worker crashed. Detail: {str(async_err)}")
+                raise async_err
+
+            # =====================================================================
+            # 2. SYNCHRONIZE LINKEDIN DOCUMENT ROWS INTO THE COLLECTION
+            # =====================================================================
             print("\n========================================================")
-            print("         LinkedIn PDF INGESTION RAW JSON DATA           ")
+            print("            LinkedIn PDF INGESTION RAW JSON DATA        ")
             print("========================================================")
 
-            # 2. Synchronize LinkedIn Document Rows Into the Collection
             if self.linkedin_payload.get("documents"):
                 print(f"📥 Loading {len(self.linkedin_payload['documents'])} LinkedIn profile segments into Vector database...")
                 try:
@@ -143,17 +155,14 @@ class CareerTracker:
             else:
                 print("⚠️ Ingestion Warning: No readable LinkedIn profile segments found to sync.")
 
-            # 3. Gather dynamic asynchronous GitHub repository activity profiles
-            try:
-                print("🔄 Fetching and parsing GitHub repositories asynchronously...")
-                self.github_payload = asyncio.run(self.github_data_extractor.github_extractor())
-            except Exception as ge:
-                print(f"❌ Extraction Error: GitHub API fetching layer failed. Detail: {str(ge)}")
-                raise ge
+            # =====================================================================
+            # 3. SYNCHRONIZE GITHUB REPOSITORY DOCUMENT ROWS INTO THE COLLECTION
+            # =====================================================================
+            print("\n========================================================")
+            print("           GitHub REPOSITORY INGESTION RAW JSON DATA    ")
+            print("========================================================")
 
-            # 4. Synchronize GitHub Repository Document Rows Into the Collection
             if self.github_payload.get("documents"):
-                # print(f"Github metadatas: {self.github_payload["metadatas"]}")
                 print(f"📥 Bulk loading {len(self.github_payload['documents'])} GitHub chunk streams into Vector database...")
                 try:
                     self.collection.upsert(
@@ -168,24 +177,22 @@ class CareerTracker:
                     raise db_err
             else:
                 print("⚠️ Ingestion Warning: No GitHub data layers collected to push to store.")
-            # 5. Process and extract Docx File layers
-            try:
-                self.docx_payload = self.doc_data_extractor.process_file_upload()
-            except Exception as le:
-                print(f"❌ Extraction Error: LinkedIn PDF processing failed. Detail: {str(le)}")
-                raise le
 
+            # =====================================================================
+            # 4. PROCESS AND EXTRACT DOCX FILE LAYERS (PURE SYNCHRONOUS FLOW)
+            # =====================================================================
             print("\n========================================================")
-            print("         Resume Docx INGESTION RAW JSON DATA           ")
+            print("             Resume Docx INGESTION RAW JSON DATA        ")
             print("========================================================")
 
-            # 6. Synchronize Profile Document Rows Into the Collection
+            # =====================================================================
+            # 5. SYNCHRONIZE PROFILE DOCUMENT ROWS INTO THE COLLECTION
+            # =====================================================================
             if self.docx_payload.get("documents") and len(self.docx_payload["documents"]) > 0:
                 print(f"📥 Loading {len(self.docx_payload['documents'])} unique Docx profile segments into Vector database...")
                 try:
-                    # Explicitly pass the updated dictionary lists populated in the loop
                     self.collection.upsert(
-                        ids=self.docx_payload["ids"],          # 🚀 Passes the unique doc_name keys
+                        ids=self.docx_payload["ids"],
                         embeddings=self.docx_payload["embeddings"],
                         metadatas=self.docx_payload["metadatas"],
                         documents=self.docx_payload["documents"]
@@ -203,7 +210,8 @@ class CareerTracker:
             print(f"❌ Payload Schema Error: Missing internal dictionary tracking key mapping. Detail: {str(ke)}")
         except Exception as global_err:
             print(f"❌ Critical Pipeline Failure: Ingestion crashed due to an unhandled system exception.")
-            print(f"   Detail: {str(global_err)}")
+            print(f" Detail: {str(global_err)}")
+
 
     def get_all_available_filters(self) -> dict:
         """

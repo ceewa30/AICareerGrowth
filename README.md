@@ -1,4 +1,4 @@
-🎯 AI-Powered Career Growth & Sill Analytics Treacker (RAG Stack)
+🎯 AI-Powered Career Growth & Sill Analytics Tracker (RAG Stack)
 
 An enterprise-grade, decoupled data pipeline designed to transition career development from static job descriptions to dynamic human capabilities and cognitive scale.
 

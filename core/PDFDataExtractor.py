@@ -7,19 +7,20 @@ from commons.DataValidation import DynamicRepoMetadata, READMEChunk
 from commons.TargetSkill import TargetSkill
 from commons.chunk import recursive_text_splitter
 from core.VectorEmbedding import VectorEmbedding
-from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv(override=True)
 
 class PDFDataExtractor:
     def __init__(self):
-        self.client = OpenAI()
+        self.client = AsyncOpenAI()
         self.target_skill = TargetSkill()
         self.username = "ceewa30"
         self.embedding_client = VectorEmbedding()
 
-    def pdf_extractor(self):
+    async def pdf_extractor(self):
     # 1. Fetch raw data from your target skill utility
         self.linkedin_data = self.target_skill.targetskill()
         readme_text = self.linkedin_data['linkedin_text']
@@ -42,16 +43,17 @@ class PDFDataExtractor:
         print(f"Loading prompt from: {prompt_path}")
 
         # Open and read the raw file content
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            raw_content = f.read().strip()
+        def read_prompt():
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+
+        raw_content = await asyncio.to_thread(read_prompt)
 
         pattern = r'"document"\s*:\s*"(.*?)"\s*,\s*"github"'
         match = re.search(pattern, raw_content, re.DOTALL)
 
         if match:
             system_prompt = match.group(1).strip()
-            # print("\n--- Extracted Document Prompt Safely ---")
-            # print(system_prompt)
         else:
             print("Error: Could not locate the 'document' prompt structure in your file.")
         prompt = f"""
@@ -61,7 +63,7 @@ class PDFDataExtractor:
         """
 
         try:
-            completion = self.client.beta.chat.completions.parse(
+            completion = await self.client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -77,7 +79,8 @@ class PDFDataExtractor:
                 author=self.linkedin_data.get('name', 'Unknown Candidate'),
                 tech_stack=", ".join(list(self.linkedin_data['linkedin_skills'])),
                 uses_machine_learning=False,
-                algorithm_summary="N/A"
+                algorithm_summary="N/A",
+                current_role=self.linkedin_data.get('current_role', 'Developer')
             )
 
         # 🚀 STEP B: Format the flat Chroma-compliant metadata base dictionary
@@ -85,7 +88,7 @@ class PDFDataExtractor:
             "repository_name": "linkedin_profile_source",
             "author": extracted_meta.author,
             "primary_stack": extracted_meta.tech_stack,
-            "ml_used": extracted_meta.uses_machine_learning,
+            "ml_used": str(extracted_meta.uses_machine_learning),
             "algo_type": extracted_meta.algorithm_summary,
             "current_role": extracted_meta.current_role,
             "file_type": "linkedin"
@@ -96,7 +99,11 @@ class PDFDataExtractor:
         print(f" -> Generated {len(text_chunks)} chunk rows.")
 
         # 3. Generate 1536-dim OpenAI vector float arrays
-        self.chunk_vectors = self.embedding_client.generate_batch_embeddings(text_chunks)
+        if hasattr(self.embedding_client, "generate_batch_embeddings_async"):
+            self.chunk_vectors = await self.embedding_client.generate_batch_embeddings_async(text_chunks)
+        else:
+            print("ℹ️ generate_batch_embeddings_async not found. Running batch generator in a separate thread context...")
+            self.chunk_vectors = await asyncio.to_thread(self.embedding_client.generate_batch_embeddings, text_chunks)
 
         # 🚀 STEP C: Loop and append explicit indexing properties for downstream storage arrays
         linkedin_documents = []
@@ -138,10 +145,13 @@ class PDFDataExtractor:
 
         return self.linkedin_payload
 
-
-if __name__=="__main__":
+async def main():
     extractor = PDFDataExtractor()
 
-    linkedin_payload = extractor.pdf_extractor()
+    linkedin_payload = await extractor.pdf_extractor()
 
     print(f"\n📊 Repositories Processed Metadata Rows: {len(linkedin_payload['metadatas'])}")
+
+
+if __name__=="__main__":
+    asyncio.run(main())

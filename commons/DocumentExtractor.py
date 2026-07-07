@@ -6,14 +6,15 @@ import glob
 import re
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from core.VectorEmbedding import VectorEmbedding
-from commons.DataValidation import UserProfile, READMEChunk, RepoDocument, ResumeExtractionSchema, DynamicRepoMetadata
+from commons.DataValidation import READMEChunk, RepoDocument, DynamicRepoMetadata
 from commons.chunk import recursive_text_splitter
-from openai import OpenAI
+import asyncio
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-def extract_raw_resume_data(resume_text: str) -> DynamicRepoMetadata:
+async def extract_raw_resume_data(resume_text: str) -> DynamicRepoMetadata:
     """Uses OpenAI to extract raw unstructured text data into a structured schema."""
     root_dir = Path(__file__).resolve().parent
     if (root_dir / "resources").exists():
@@ -25,22 +26,23 @@ def extract_raw_resume_data(resume_text: str) -> DynamicRepoMetadata:
     print(f"Loading prompt from: {prompt_path}")
 
     # Open and read the raw file content
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        raw_content = f.read().strip()
+    def read_prompt():
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+
+    raw_content = await asyncio.to_thread(read_prompt)
 
     pattern = r'"document"\s*:\s*"(.*?)"\s*,\s*"github"'
     match = re.search(pattern, raw_content, re.DOTALL)
 
     if match:
         system_prompt = match.group(1).strip()
-        # print("\n--- Extracted Document Prompt Safely ---")
-        # print(system_prompt)
     else:
         print("Error: Could not locate the 'document' prompt structure in your file.")
 
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-    completion = client.beta.chat.completions.parse(
+    completion = await client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_prompt},
@@ -65,7 +67,7 @@ class DocumentExtractor:
         self.filenames = glob.glob(search_path)
         print(f"Glob pulling : {self.filenames}")
 
-    def process_file_upload(self) -> str:
+    async def process_file_upload(self) -> str:
         """Helper to detect file types and parse text out of incoming Gradio file objects safely."""
 
         knowledge = {}
@@ -95,7 +97,7 @@ class DocumentExtractor:
             structured_readme_chunks = []
             for doc_name, doc_text in knowledge.items():
                 print(f"\n ----- Chunking Resource: {doc_name} -----")
-                raw_resume_data = extract_raw_resume_data(doc_text)
+                raw_resume_data = await extract_raw_resume_data(doc_text)
 
                 flat_profile_metadata = {
                     "repository_name": "docx_resume_source",
@@ -161,9 +163,10 @@ class DocumentExtractor:
             print(f"❌ Ingestion Error: Failed to parse uploaded file. Detail: {str(e)}")
 
 
+async def main():
+    extractor = DocumentExtractor()
+    extracted_text = await extractor.process_file_upload()
+    print(f"\n✅ Extraction completed. Payload summary: {extracted_text}")
 
 if __name__=="__main__":
-    extractor = DocumentExtractor()
-
-    # Run parsing extraction test checks against your local doc path instance
-    extracted_text = extractor.process_file_upload()
+    asyncio.run(main())
